@@ -1,0 +1,2 @@
+FURLSessionDownLoadManager
+AFNetWorking 3.0 NSURLSession 下载模块，AFDownloadRequestOperation 的翻版
