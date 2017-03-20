@@ -14,11 +14,6 @@
 static NSString *const AFURLSessionDownloaderCacheFolderName = @"Incomplete";
 typedef void (^AFURLSessionProgressiveOperationProgressBlock)(AFURLSessionDownloadTask *task, NSInteger bytes, long long totalBytes, long long totalBytesExpected, long long totalBytesReadForFile, long long totalBytesExpectedToReadForFile);
 
-@interface AFURLConnectionOperation (AFInternal)
-@property (nonatomic, strong) NSURLRequest *request;
-@property (readonly, nonatomic, assign) long long totalBytesRead;
-@end
-
 @interface AFURLSessionDownloadTask ()
 {
     
@@ -382,7 +377,7 @@ didReceiveResponse:(NSURLResponse *)response
 // updates the current request to set the correct start-byte-range.
 - (BOOL)updateByteStartRangeForRequestWithRequest:(NSMutableURLRequest *)request
                                      shouldResume:(BOOL)shouldResume
-                                       tempPath:(NSString *)tempPath {
+                                         tempPath:(NSString *)tempPath {
     BOOL isResuming = NO;
     if (shouldResume) {
         unsigned long long downloadedBytes = [self fileSizeForPath:tempPath];
