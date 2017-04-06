@@ -238,7 +238,6 @@ typedef void (^AFURLSessionProgressiveOperationProgressBlock)(AFURLSessionDownlo
 didReceiveResponse:(NSURLResponse *)response
  completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler
 {
-    [super URLSession:session dataTask:dataTask didReceiveResponse:response completionHandler:completionHandler];
     AFURLSessionDownloadTask *downloadTask = [self getAFDownloadTaskForDataTask:dataTask];
     if (downloadTask) {
         // check if we have the correct response
@@ -269,15 +268,38 @@ didReceiveResponse:(NSURLResponse *)response
         if ([self fileSizeForPath:tempPath] != downloadTask.offsetContentLength) {
             [downloadTask.outputStream close];
             BOOL isResuming = downloadTask.offsetContentLength > 0;
+            NSError *error = nil;
             if (isResuming) {
+                //manager 在准备写入文件时，应为空间不足导致崩溃
                 NSFileHandle *file = [NSFileHandle fileHandleForWritingAtPath:tempPath];
-                [file truncateFileAtOffset:downloadTask.offsetContentLength];
-                [file closeFile];
+                if (file) { //maybe nil init error
+                    @try {
+                        [file truncateFileAtOffset:downloadTask.offsetContentLength];
+                    } @catch (NSException *exception) {
+                        error = [NSError errorWithDomain:exception.reason
+                                                             code:AFURLSessionDownloadTaskErrorNoSpace
+                                                         userInfo:exception.userInfo];
+                        downloadTask.fileError = error;
+                        downloadTask.responseObject = nil;
+                    } @finally {
+                        [file closeFile];
+                    }
+                } else {
+                    error = [NSError errorWithDomain:[NSString stringWithFormat:@"%@",NSStringFromClass([self class])] code:AFURLSessionDownloadTaskErrorNoSpace userInfo:@{NSLocalizedFailureReasonErrorKey:@"no space"}];
+                    downloadTask.fileError = error;
+                    downloadTask.responseObject = nil;
+                }
             }
-            downloadTask.outputStream = [NSOutputStream outputStreamToFileAtPath:tempPath append:isResuming];
-            [downloadTask.outputStream open];
+            if (!error) {
+                downloadTask.outputStream = [NSOutputStream outputStreamToFileAtPath:tempPath append:isResuming];
+                [downloadTask.outputStream open];
+            } else {
+                completionHandler(NSURLSessionResponseCancel); //设置取消
+                return;
+            }
         }
     }
+    [super URLSession:session dataTask:dataTask didReceiveResponse:response completionHandler:completionHandler];
 }
 
 - (void)URLSession:(NSURLSession *)session
@@ -340,9 +362,8 @@ didReceiveResponse:(NSURLResponse *)response
                     downloadTask.fileError = localError;
                 }
             }
-            
             // loss of network connections = error set, but not cancel
-        }else if(!error) {
+        } else if(!error) {
             // move file to final position and capture error
             NSFileManager *fileManager = [NSFileManager new];
             if (downloadTask.shouldOverwrite) {
@@ -354,6 +375,9 @@ didReceiveResponse:(NSURLResponse *)response
             } else {
                 downloadTask.responseObject = downloadTask.targetPath;
             }
+        }
+        if (downloadTask.fileError) {
+            error = downloadTask.fileError;
         }
         [self removeAFDownloadTaskForDataTask:task];
     }
@@ -377,7 +401,7 @@ didReceiveResponse:(NSURLResponse *)response
 // updates the current request to set the correct start-byte-range.
 - (BOOL)updateByteStartRangeForRequestWithRequest:(NSMutableURLRequest *)request
                                      shouldResume:(BOOL)shouldResume
-                                         tempPath:(NSString *)tempPath {
+                                       tempPath:(NSString *)tempPath {
     BOOL isResuming = NO;
     if (shouldResume) {
         unsigned long long downloadedBytes = [self fileSizeForPath:tempPath];

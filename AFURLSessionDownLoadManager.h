@@ -8,6 +8,11 @@
 
 #import <AFNetworking/AFNetworking.h>
 
+typedef NS_ENUM(NSUInteger, AFURLSessionDownloadTaskError) {
+    AFURLSessionDownloadTaskErrorNoSpace = 3,
+    AFURLSessionDownloadTaskErrorOther
+};
+
 @interface AFURLSessionDownloadTask : NSObject
 /**
  A String value that defines the target path or directory.
@@ -89,9 +94,9 @@
 
 ///**
 // Sets a callback to be called when an undetermined number of bytes have been downloaded from the server. This is a variant of setDownloadProgressBlock that adds support for progressive downloads and adds the
-//
+// 
 // @param block A block object to be called when an undetermined number of bytes have been downloaded from the server. This block has no return value and takes five arguments: the number of bytes read since the last time the download progress block was called, the bytes expected to be read during the request, the bytes already read during this request, the total bytes read (including from previous partial downloads), and the total bytes expected to be read for the file. This block may be called multiple times.
-//
+// 
 // @see setDownloadProgressBlock
 // */
 - (void)setProgressiveDownloadProgressBlock:(void (^)(AFURLSessionDownloadTask *task, NSInteger bytes, long long totalBytes, long long totalBytesExpected, long long totalBytesReadForFile, long long totalBytesExpectedToReadForFile)) block;
